@@ -1,7 +1,6 @@
 #!/bin/bash
 # HERJYI — Full Higgsfield Generation (Stills + Video)
-# World #1 Quality. Mac Mini + Raido drive.
-# Requires: pip3 install higgsfield-client
+# Mac Mini + RAID0 drive.
 
 set -e
 
@@ -13,14 +12,14 @@ if [ -z "$HF_API_KEY" ] || [ -z "$HF_SECRET" ]; then
 fi
 
 export HF_KEY="${HF_API_KEY}:${HF_SECRET}"
-BASE="/Volumes/Raido - AI Video/HERJYI-Video"
+BASE="/Volumes/RAID0/HERJYI-Video"
 mkdir -p "$BASE"/{stills,clips,overlays,final}
 
 python3 << 'PYEOF'
 import os, urllib.request, json, time
 from higgsfield_client import subscribe, submit
 
-BASE = "/Volumes/Raido - AI Video/HERJYI-Video"
+BASE = "/Volumes/RAID0/HERJYI-Video"
 
 scenes = [
     {
@@ -71,7 +70,6 @@ for scene in scenes:
     print(f"  {name.upper()}")
     print(f"{'='*50}")
 
-    # Image
     print("  [IMG] Generating...")
     try:
         img_result = subscribe("generate-image", {"prompt": scene["img"], "resolution": "1080p"})
@@ -81,7 +79,6 @@ for scene in scenes:
             download(img_url, f"{BASE}/stills/{name}.png")
             results[f"{name}_img"] = img_url
 
-            # Video
             print("  [VID] Generating...")
             try:
                 vid_result = subscribe("generate-video", {
@@ -107,10 +104,9 @@ print("  GENERATION SUMMARY")
 print(f"{'='*50}")
 for k, v in results.items():
     print(f"  {k}: {v[:80]}...")
-
 print(f"\nStills: {BASE}/stills/")
 print(f"Clips:  {BASE}/clips/")
 PYEOF
 
 echo ""
-echo "Next: bash stitch.sh"
+echo "Next: bash herjyi-video/stitch.sh"
