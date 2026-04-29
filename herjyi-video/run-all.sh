@@ -1,151 +1,174 @@
 #!/bin/bash
-# HERJYI 40s Commercial — FULL AUTOMATED PIPELINE
-# One command. Mac Mini + Raido drive. Higgsfield MCP.
+# HERJYI 40s Commercial — FULL PIPELINE
+# Mac Mini + Raido drive. One command.
 # Usage: bash run-all.sh
 
 set -e
 
 BASE="/Volumes/Raido - AI Video/HERJYI-Video"
 
+if [ -z "$HF_API_KEY" ] || [ -z "$HF_SECRET" ]; then
+  echo "ERROR: Set HF_API_KEY and HF_SECRET first"
+  echo "  export HF_API_KEY=your-api-key"
+  echo "  export HF_SECRET=your-secret"
+  exit 1
+fi
+
+export HF_KEY="${HF_API_KEY}:${HF_SECRET}"
+
 echo "========================================"
 echo "  HERJYI 40s Commercial — Full Pipeline"
 echo "========================================"
-echo ""
 
-# --- STEP 0: Setup ---
-echo "[0/6] Setting up project on Raido drive..."
+# --- STEP 0: Setup folders on Raido ---
+echo "[0/5] Creating project on Raido..."
 mkdir -p "$BASE"/{stills,clips,overlays,final,assets}
 
-# --- STEP 1: Install Higgsfield MCP ---
-echo "[1/6] Installing Higgsfield MCP..."
-pip install higgsfield-mcp 2>/dev/null || pip3 install higgsfield-mcp 2>/dev/null
+# --- STEP 1: Install deps ---
+echo "[1/5] Installing dependencies..."
+pip3 install higgsfield-client 2>/dev/null || true
+brew list ffmpeg &>/dev/null || brew install ffmpeg 2>/dev/null || true
 
-# Add to Claude Code if not already added
-claude mcp add higgsfield -- python3 -m higgsfield_mcp.server 2>/dev/null || true
+# --- STEP 2: Generate 4 stills + 4 videos ---
+echo "[2/5] Generating stills and video clips via Higgsfield..."
 
-echo ""
-echo "[1/6] Higgsfield MCP installed."
-echo "       Make sure HF_API_KEY and HF_SECRET are set:"
-echo "       export HF_API_KEY=your-key"
-echo "       export HF_SECRET=your-secret"
-echo ""
+python3 << 'PYEOF'
+import os, time, json, urllib.request
 
-# --- STEP 2: Generate stills via Claude + Higgsfield ---
-echo "[2/6] Launching Claude Code to generate stills via Higgsfield MCP..."
+from higgsfield_client import subscribe, submit
 
-claude --print "You have Higgsfield MCP connected. Do this exactly:
+BASE = "/Volumes/Raido - AI Video/HERJYI-Video"
 
-1. Call generate_image with prompt: 'Macro close-up of raw Taiwanese brown sugar crystals on a dark slate surface. Warm amber glow illuminates irregular crystalline texture. Traces of molasses glisten. Single sugarcane stalk blurred in background. Dark moody studio lighting. Premium ingredient photography, 8K, shallow depth of field.' Save the URL.
+scenes = [
+    {
+        "name": "scene1_origin",
+        "img_prompt": "Macro close-up of raw Taiwanese brown sugar crystals on a dark slate surface. Warm amber glow illuminates the irregular crystalline texture. Traces of molasses glisten. Single sugarcane stalk blurred in background. Dark moody studio lighting. Premium ingredient photography, 8K, shallow depth of field.",
+        "vid_prompt": "Slow dolly-in macro shot. Golden brown sugar crystals on dark slate begin to melt, thick glossy caramel slowly pooling. Warm volumetric amber lighting from above. Wisps of steam rise. Dark background, premium commercial photography style. Ultra-slow motion, cinematic depth of field, 8K hyper-realistic."
+    },
+    {
+        "name": "scene2_craft",
+        "img_prompt": "A transparent glass viewed from above showing dark brown sugar syrup pooled at the bottom with fresh white milk being poured from top. The moment of first contact, brown sugar tendrils swirling upward into milk creating marble patterns. Soft warm beige seamless background. Overhead angle. Premium beverage advertisement, DSLR macro, hyper-realistic, 8K.",
+        "vid_prompt": "Top-down overhead shot, slow zoom in. Creamy milk pours into glass, colliding with dark brown sugar syrup below. Caramel marble swirls bloom upward in slow motion. Three clear ice cubes drop in sequence with realistic splash and refraction. Soft diffused cafe lighting, warm beige background. Hyper-realistic liquid physics, ultra-slow motion, premium commercial, 8K."
+    },
+    {
+        "name": "scene3_pearls",
+        "img_prompt": "Extreme macro of glossy black tapioca pearls mid-fall, three pearls suspended in air above a glass of brown sugar milk tea. Each pearl coated in glistening brown sugar syrup. Glass shows perfect brown-to-cream gradient. Condensation droplets on glass. Soft beige studio background. Rembrandt lighting. Commercial food photography, 8K.",
+        "vid_prompt": "Slow-motion tracking shot. Glossy black tapioca pearls fall one by one into brown sugar milk tea. Each pearl breaks the surface with micro-splash and sinks through cream layer. Camera follows the last pearl downward through liquid. Condensation forms on glass exterior. Warm Rembrandt studio lighting, beige background. Hyper-realistic, premium beverage ad, ultra-slow motion, 8K."
+    },
+    {
+        "name": "scene4_hero",
+        "img_prompt": "Center-frame hero product shot of a tall transparent glass filled with iced brown sugar bubble milk tea. Tiger-stripe brown sugar pattern on inside of glass. Tapioca pearls settled at bottom. Creamy milk tea with ice cubes. Visible condensation droplets. Clean beige seamless studio background. Soft natural lighting, clean shadow beneath glass. Ultra-sharp, DSLR macro, premium advertisement, 8K.",
+        "vid_prompt": "Slow crane shot rising from glass base to top. Finished brown sugar bubble milk tea centered in frame. Camera slowly orbits 15 degrees. Condensation droplet slides down glass surface. Subtle light shift catches ice cube refraction. Everything calm and still. Soft diffused studio lighting, warm beige background. Ultra-premium commercial, Apple product-shot aesthetic, hyper-realistic, 8K."
+    }
+]
 
-2. Call generate_image with prompt: 'A transparent glass from above showing dark brown sugar syrup pooled at bottom with fresh white milk poured from top. Brown sugar tendrils swirling upward into milk creating marble patterns. Soft warm beige seamless background. Overhead angle. Premium beverage ad, DSLR macro, hyper-realistic, 8K.' Save the URL.
+def download(url, path):
+    urllib.request.urlretrieve(url, path)
+    print(f"  Saved: {path}")
 
-3. Call generate_image with prompt: 'Extreme macro of glossy black tapioca pearls mid-fall, three pearls suspended above brown sugar milk tea glass. Each pearl coated in glistening brown sugar syrup. Brown-to-cream gradient in glass. Condensation droplets. Soft beige studio background. Rembrandt lighting. Commercial food photography, 8K.' Save the URL.
+for scene in scenes:
+    name = scene["name"]
+    print(f"\n=== {name.upper()} ===")
 
-4. Call generate_image with prompt: 'Center-frame hero product shot of tall transparent glass filled with iced brown sugar bubble milk tea. Tiger-stripe brown sugar pattern inside glass. Tapioca pearls at bottom. Creamy milk tea with ice cubes. Condensation droplets. Clean beige seamless studio background. Soft natural lighting, clean shadow beneath. Ultra-sharp, DSLR macro, premium ad, 8K.' Save the URL.
+    # Generate image
+    print(f"  Generating image...")
+    try:
+        img_result = subscribe("generate-image", {
+            "prompt": scene["img_prompt"],
+            "resolution": "1080p"
+        })
+        print(f"  Image result: {img_result}")
 
-5. For EACH image URL, call generate_video with cinematic slow-motion motion preset.
+        # Extract image URL
+        img_url = None
+        if isinstance(img_result, dict):
+            img_url = img_result.get("url") or img_result.get("image_url") or img_result.get("output", {}).get("url")
+        elif isinstance(img_result, str):
+            img_url = img_result
 
-6. Poll get_generation_status for each job until completed.
+        if img_url:
+            download(img_url, f"{BASE}/stills/{name}.png")
 
-7. Print all final URLs as a list.
+            # Generate video from image
+            print(f"  Generating video...")
+            vid_result = subscribe("generate-video", {
+                "image_url": img_url,
+                "prompt": scene["vid_prompt"]
+            })
+            print(f"  Video result: {vid_result}")
 
-Output ONLY the final image and video URLs, one per line, labeled scene1_img, scene1_vid, scene2_img, scene2_vid, scene3_img, scene3_vid, scene4_img, scene4_vid." > "$BASE/generation_urls.txt"
+            vid_url = None
+            if isinstance(vid_result, dict):
+                vid_url = vid_result.get("url") or vid_result.get("video_url") or vid_result.get("output", {}).get("url")
+            elif isinstance(vid_result, str):
+                vid_url = vid_result
 
-echo "[2/6] Generation URLs saved to $BASE/generation_urls.txt"
+            if vid_url:
+                download(vid_url, f"{BASE}/clips/{name}.mp4")
+        else:
+            print(f"  WARNING: No image URL in result")
+    except Exception as e:
+        print(f"  ERROR: {type(e).__name__}: {e}")
 
-# --- STEP 3: Download all generated files ---
-echo "[3/6] Downloading stills and clips to Raido..."
+print("\n=== All generation complete ===")
+print(f"Stills: {BASE}/stills/")
+print(f"Clips:  {BASE}/clips/")
+PYEOF
 
-while IFS= read -r line; do
-  if [[ "$line" == *"scene"*"_img"* ]]; then
-    NAME=$(echo "$line" | cut -d: -f1 | xargs)
-    URL=$(echo "$line" | cut -d' ' -f2-)
-    SCENE_NUM=$(echo "$NAME" | grep -o '[0-9]')
-    curl -sL "$URL" -o "$BASE/stills/scene${SCENE_NUM}.png" && echo "  Downloaded $NAME"
-  elif [[ "$line" == *"scene"*"_vid"* ]]; then
-    NAME=$(echo "$line" | cut -d: -f1 | xargs)
-    URL=$(echo "$line" | cut -d' ' -f2-)
-    SCENE_NUM=$(echo "$NAME" | grep -o '[0-9]')
-    curl -sL "$URL" -o "$BASE/clips/scene${SCENE_NUM}.mp4" && echo "  Downloaded $NAME"
-  fi
-done < "$BASE/generation_urls.txt"
+echo "[2/5] Generation done."
 
-echo "[3/6] All files downloaded."
-
-# --- STEP 4: Download Canva overlays ---
-echo "[4/6] Download these Canva overlay PNGs manually:"
-echo "  Endcard:    https://www.canva.com/d/Xu-Lq4y2bLBRxrl -> $BASE/overlays/endcard.png"
-echo "  Scene 1:    https://www.canva.com/d/w3-ClQDtFWVw4vx -> $BASE/overlays/scene1_title.png"
-echo "  Scene 2:    https://www.canva.com/d/QWPYJH22PoU_Ep8 -> $BASE/overlays/scene2_overlay.png"
-echo "  Scene 3:    https://www.canva.com/d/KNOBSsEgquIRpC0 -> $BASE/overlays/scene3_overlay.png"
-echo "  Scene 4:    https://www.canva.com/d/G_IJXA8rBHVlZqv -> $BASE/overlays/scene4_closing.png"
-echo ""
-
-# --- STEP 5: Stitch with ffmpeg ---
-echo "[5/6] Stitching 4 clips into 40s video..."
-
-for i in 1 2 3 4; do
-  if [ ! -f "$BASE/clips/scene${i}.mp4" ]; then
-    echo "ERROR: Missing $BASE/clips/scene${i}.mp4"
-    exit 1
-  fi
+# --- STEP 3: Rename clips for concat ---
+echo "[3/5] Preparing clips..."
+cd "$BASE/clips"
+for f in scene1_origin.mp4 scene2_craft.mp4 scene3_pearls.mp4 scene4_hero.mp4; do
+  NUM=$(echo "$f" | grep -o '[0-9]')
+  [ -f "$f" ] && cp "$f" "scene${NUM}.mp4"
 done
 
-cat > "$BASE/clips/concat.txt" << 'CLIPLIST'
+# --- STEP 4: Stitch ---
+echo "[4/5] Stitching 4 clips into 40s video..."
+
+MISSING=0
+for i in 1 2 3 4; do
+  [ ! -f "$BASE/clips/scene${i}.mp4" ] && echo "  Missing scene${i}.mp4" && MISSING=1
+done
+
+if [ "$MISSING" -eq 0 ]; then
+  cat > "$BASE/clips/concat.txt" << 'CLIPLIST'
 file 'scene1.mp4'
 file 'scene2.mp4'
 file 'scene3.mp4'
 file 'scene4.mp4'
 CLIPLIST
 
-ffmpeg -y -f concat -safe 0 \
-  -i "$BASE/clips/concat.txt" \
-  -c:v libx264 -crf 18 -preset slow \
-  -vf "fps=24,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" \
-  -pix_fmt yuv420p \
-  "$BASE/final/herjyi_40s_raw.mp4"
+  ffmpeg -y -f concat -safe 0 \
+    -i "$BASE/clips/concat.txt" \
+    -c:v libx264 -crf 18 -preset slow \
+    -vf "fps=24,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" \
+    -pix_fmt yuv420p \
+    "$BASE/final/herjyi_40s_raw.mp4"
 
-echo "[5/6] Raw video: $BASE/final/herjyi_40s_raw.mp4"
-
-# --- STEP 6: Add overlays with ffmpeg ---
-echo "[6/6] Adding text overlays..."
-
-if [ -f "$BASE/overlays/scene1_title.png" ]; then
-  ffmpeg -y \
-    -i "$BASE/final/herjyi_40s_raw.mp4" \
-    -i "$BASE/overlays/scene1_title.png" \
-    -i "$BASE/overlays/scene2_overlay.png" \
-    -i "$BASE/overlays/scene3_overlay.png" \
-    -i "$BASE/overlays/scene4_closing.png" \
-    -i "$BASE/overlays/endcard.png" \
-    -filter_complex "
-      [1:v]format=rgba,fade=t=in:st=6.5:d=0.5:alpha=1,fade=t=out:st=9:d=0.5:alpha=1[ov1];
-      [2:v]format=rgba,fade=t=in:st=16.5:d=0.5:alpha=1,fade=t=out:st=19:d=0.5:alpha=1[ov2];
-      [3:v]format=rgba,fade=t=in:st=26.5:d=0.5:alpha=1,fade=t=out:st=29:d=0.5:alpha=1[ov3];
-      [4:v]format=rgba,fade=t=in:st=32.5:d=0.5:alpha=1,fade=t=out:st=36:d=0.5:alpha=1[ov4];
-      [5:v]format=rgba,fade=t=in:st=36.5:d=0.5:alpha=1[ov5];
-      [0:v][ov1]overlay=0:0[tmp1];
-      [tmp1][ov2]overlay=0:0[tmp2];
-      [tmp2][ov3]overlay=0:0[tmp3];
-      [tmp3][ov4]overlay=0:0[tmp4];
-      [tmp4][ov5]overlay=0:0[final]" \
-    -map "[final]" \
-    -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p \
-    "$BASE/final/herjyi_40s_with_overlays.mp4"
-  echo "[6/6] Final with overlays: $BASE/final/herjyi_40s_with_overlays.mp4"
+  echo "  Raw video: $BASE/final/herjyi_40s_raw.mp4"
 else
-  echo "[6/6] Skipped overlays (PNGs not found). Use raw video."
+  echo "  Skipping stitch — missing clips."
 fi
 
+# --- STEP 5: Summary ---
 echo ""
 echo "========================================"
-echo "  DONE"
+echo "  PIPELINE COMPLETE"
 echo "========================================"
 echo ""
-echo "Files on Raido:"
-ls -lh "$BASE/stills/" 2>/dev/null
-ls -lh "$BASE/clips/" 2>/dev/null
-ls -lh "$BASE/final/" 2>/dev/null
+echo "Output on Raido:"
+echo "  Stills:  $BASE/stills/"
+echo "  Clips:   $BASE/clips/"
+echo "  Final:   $BASE/final/"
 echo ""
-echo "Final video: $BASE/final/herjyi_40s_with_overlays.mp4"
-echo "Raw video:   $BASE/final/herjyi_40s_raw.mp4"
+[ -f "$BASE/final/herjyi_40s_raw.mp4" ] && echo "Final video: $BASE/final/herjyi_40s_raw.mp4" && ls -lh "$BASE/final/herjyi_40s_raw.mp4"
+echo ""
+echo "Next: Add Canva overlays in CapCut/DaVinci"
+echo "  Endcard:    https://www.canva.com/d/Xu-Lq4y2bLBRxrl"
+echo "  Scene 1:    https://www.canva.com/d/w3-ClQDtFWVw4vx"
+echo "  Scene 2:    https://www.canva.com/d/QWPYJH22PoU_Ep8"
+echo "  Scene 3:    https://www.canva.com/d/KNOBSsEgquIRpC0"
+echo "  Scene 4:    https://www.canva.com/d/G_IJXA8rBHVlZqv"
