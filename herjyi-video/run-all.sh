@@ -12,7 +12,12 @@ fi
 
 export HF_KEY="${HF_API_KEY}:${HF_SECRET}"
 
-pip3 install higgsfield-client 2>/dev/null || true
+# Install in virtual env to avoid PEP 668 error
+if [ ! -d "/tmp/hf-venv" ]; then
+  python3 -m venv /tmp/hf-venv
+fi
+source /tmp/hf-venv/bin/activate
+pip install higgsfield-client 2>/dev/null || pip install higgsfield-client
 
 bash herjyi-video/higgsfield-generate.sh
 bash herjyi-video/stitch.sh

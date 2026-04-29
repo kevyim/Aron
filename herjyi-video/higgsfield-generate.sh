@@ -4,14 +4,20 @@
 
 set -e
 
-if [ -z "$HF_API_KEY" ] || [ -z "$HF_SECRET" ]; then
-  echo "Set credentials first:"
-  echo "  export HF_API_KEY=your-key"
-  echo "  export HF_SECRET=your-secret"
-  exit 1
+if [ -z "$HF_KEY" ]; then
+  if [ -n "$HF_API_KEY" ] && [ -n "$HF_SECRET" ]; then
+    export HF_KEY="${HF_API_KEY}:${HF_SECRET}"
+  else
+    echo "Set credentials first"
+    exit 1
+  fi
 fi
 
-export HF_KEY="${HF_API_KEY}:${HF_SECRET}"
+# Activate venv if not already
+if [ -d "/tmp/hf-venv" ]; then
+  source /tmp/hf-venv/bin/activate
+fi
+
 BASE="/Volumes/RAID0/HERJYI-Video"
 mkdir -p "$BASE"/{stills,clips,overlays,final}
 
